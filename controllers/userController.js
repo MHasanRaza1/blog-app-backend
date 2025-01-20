@@ -2,7 +2,7 @@ import User from "../models/userModel.js";
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import otpGenerate from "../helper/otpGenerate.js";
-import { sendCode, welcome } from "../helper/email.js";
+import { resetPasswordCode, sendCode, welcome } from "../helper/email.js";
 
 export const getUsers = async (req, res) => {
     try {
@@ -78,7 +78,7 @@ export const verifyEmail = async (req, res) => {
             return res.status(400).send({ status: 400, message: 'Invalid OTP' });
         }
         user.isVerified = true;
-        user.otp = undefined;
+        user.otp = null;
         await user.save();
         // Generate a JWT token
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET);
@@ -112,6 +112,64 @@ export const loginUser = async (req, res) => {
 };
 
 
-export const resetPassword = (req, res) => {
-    res.status(200).send('Password reset successfully');
+export const resetPasswordOTP = async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) {
+            return res.status(400).send({ status: 400, message: 'Email is required' });
+        }
+        const findUser = await User.findOne({ email });
+        if (!findUser) {
+            return res.status(404).send({ status: 404, message: 'User not found' });
+        }
+        const otp = otpGenerate();
+        findUser.otp = otp;
+        await findUser.save();
+        await resetPasswordCode(findUser.email, findUser.name, otp);
+        res.status(200).send({ status: 200, message: 'OTP sent successfully' });
+    } catch (error) {
+        res.status(500).send({ status: 500, message: error.message });
+    }
+};
+
+export const resetotpVerification = async (req, res) => {
+    try {
+        const {otp} = req.body;
+        if (!otp) {
+            return res.status(400).send({ status: 400, message: 'OTP is required' });
+        }
+        const user = await User.findOne({otp});
+        if (!user) {
+            return res.status(400).send({ status: 400, message: 'User not found' });
+        }
+        if(user.otp !== otp){
+            return res.status(400).send({ status: 400, message: 'Invalid OTP' });
+        }
+        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET);
+        user.otp = null;
+        await user.save();
+        res.status(200).send({ status: 200, message: 'OTP verified successfully', data: user, token: token }); 
+    } catch (error) {
+        res.status(500).send({ status: 500, message: error.message });
+    }
+};
+
+export const resetPassword = async (req, res) => {
+    try {
+        const { password, token } = req.body;
+        if (!password) {
+            return res.status(400).send({ status: 400, message: 'All fields are required' });
+        }
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await User.findById(decoded.id);
+        if (!user) {
+            return res.status(404).send({ status: 404, message: 'User not found' });
+        }
+        const hashedPassword = await bcrypt.hash(password, 10);
+        user.password = hashedPassword;
+        await user.save();
+        res.status(200).send({ status: 200, message: 'Password reset successfully' });
+    } catch (error) {
+        res.status(500).send({ status: 500, message: error.message });
+    }
 };

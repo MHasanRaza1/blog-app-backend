@@ -1,4 +1,4 @@
-import { verificationEmailTemplate, welcomeEmailTemplate } from "./emailTemplate.js";
+import { passwordResetEmailTemplate, verificationEmailTemplate, welcomeEmailTemplate } from "./emailTemplate.js";
 import transporter from "./nodemailer.js";
 import dotenv from "dotenv";
 
@@ -29,7 +29,21 @@ export const welcome = async (email, name) => {
             text: "Welcome Email", // plain text body
             html: welcomeEmailTemplate.replace("{{name}}",name), // html body
           });
-          console.log(email,name)
+          console.log("Email send successfully")
+    } catch (error) {
+        console.log(error)
+    }
+};
+
+export const resetPasswordCode = async (email, name, otp) => {
+    try {
+        const response = await transporter.sendMail({
+            from: `"Magenta Blog" <${process.env.MY_EMAIL}>`, // sender address
+            to: email, // list of receivers
+            subject: "Welcome Email", // Subject line
+            text: "Welcome Email", // plain text body
+            html: passwordResetEmailTemplate.replace("{{name}}",name).replace("{{otp}}", otp), // html body
+          });
           console.log("Email send successfully")
     } catch (error) {
         console.log(error)
